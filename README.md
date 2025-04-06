@@ -29,24 +29,24 @@ git clone https://github.com/BenGJ10/Fixora-AI.git
 cd FixoraAI
 ```
 
-### **2️⃣ Install Dependencies
+### **2️⃣ Install Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-### **3️⃣ Set Up Environment Variables
+### **3️⃣ Set Up Environment Variables**
 Create a .env file in the backend/ directory and add your Google Gemini API Key:
 ```bash
 GEMINI_API_KEY=your_google_gemini_api_key
 ```
 
-### **4️⃣ Run the FastAPI Backend
+### **4️⃣ Run the FastAPI Backend**
 ```bash
 uvicorn fastapi_backend:app --reload
 ```
 It should run on http://127.0.0.1:8000
 
-### **5️⃣ Run the Streamlit Frontend
+### **5️⃣ Run the Streamlit Frontend**
 ```bash
 streamlit run frontend.py
 ```

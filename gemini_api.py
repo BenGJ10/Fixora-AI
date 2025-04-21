@@ -24,7 +24,7 @@ def get_debugging_response(code_snippet: str) -> str:
         return "I only assist with code debugging. Please provide a code snippet with errors."
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        model = genai.GenerativeModel('gemini-1.5-pro')
         response = model.generate_content(
             f"Analyze and debug the following code:\n\n{code_snippet}\n\n"
             "Provide a structured breakdown including:\n"

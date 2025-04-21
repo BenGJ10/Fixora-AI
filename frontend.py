@@ -2,110 +2,141 @@ import streamlit as st
 import requests
 import time
 
-# Set up Streamlit page configuration
-st.set_page_config(page_title="FixoraAI - Debugging Assistant", layout="wide")
+API_URL = "http://127.0.0.1:8000/debug/"  # Updated API endpoint for FixoraAI
 
-# Custom CSS for UI styling and text wrapping fix
+st.set_page_config(page_title="FixoraAI", page_icon="🤖", layout="wide")
+
+# Sidebar - Settings & Chat History
+with st.sidebar:
+    st.title("⚙️ Settings")
+    theme = st.radio("Choose theme", ["Dark", "Light"])
+    st.markdown("Built by [Ben Gregory John]")
+
+    st.title("🕰️ Chat History")
+    for i, session in enumerate(st.session_state.get("chat_sessions", [])):
+        if st.button(f"Conversation {i+1}"):
+            st.session_state.messages = session.copy()
+            st.rerun()
+    
+    # New chat button
+    if st.button("New Chat"):
+        if st.session_state.get("messages"):
+            st.session_state.chat_sessions.append(st.session_state.messages.copy())
+        st.session_state.messages = []
+        st.rerun()
+
+# Theme-based Colors
+if theme == "Dark":
+    bg_color = "#dbdafb"
+    user_bubble_color = "#a49ce4"
+    bot_bubble_color = "#bcb4ee"
+    text_color = "black"
+else:
+    bg_color = "#fdfbfb"
+    user_bubble_color = "#"
+    bot_bubble_color = "#"
+    text_color = "black"
+
+# CSS Styling
 st.markdown(
-    """
+    f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
-        
-        body { background-color: #1E1E1E; color: white; font-family: 'Poppins', sans-serif; }
-        .main-container { display: flex; justify-content: center; align-items: center; height: 90vh; }
-        .chat-container { width: 70%; background: #2A2A2A; padding: 20px; border-radius: 15px; box-shadow: 0px 0px 15px rgba(255,255,255,0.1); }
-        .stTextArea textarea { font-size: 18px; padding: 10px; border-radius: 10px; background: #333; color: white; }
-        .stButton button { background-color: #7D3C98; color: white; font-size: 18px; padding: 10px 20px; border-radius: 8px; }
-        
-        /* Chat Message Styling */
-        .message-container { 
-            background-color: #2A2A2A; padding: 12px; border-radius: 10px; 
-            margin-bottom: 12px; display: flex; align-items: flex-start; 
-            width: 100%; max-width: 800px; 
-            word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap;
-        }
-        
-        .user-message { color: #FFD700; font-weight: bold; }
-        .ai-message { color: #50C8F0; font-weight: bold; }
-        .avatar { width: 35px; height: 35px; border-radius: 50%; margin-right: 12px; }
-        
-        /* Typing Effect */
-        .typing-animation { font-style: italic; color: #AAAAAA; }
-
-        /* Input Box */
-        .stChatInput input { 
-            border: 2px solid transparent;
-            border-image: linear-gradient(90deg, #8E44AD, #C0392B) 1; 
-            border-radius: 12px; 
-            padding: 14px; 
-            color: #FFFFFF; 
-            background: #1E1E1E; 
-            width: 98%; 
-            max-width: 100%; 
-            box-sizing: border-box; 
-            font-size: 16px; 
-            transition: all 0.3s ease-in-out; 
-        }
-
-        .stChatInput input:focus {
-            border-color: #C0392B;
-            outline: none;
-            box-shadow: 0 0 10px rgba(192, 57, 43, 0.7);
-        }
-
+    body {{
+        background: linear-gradient(to right, #a18cd1, #fbc2eb);
+        color: {text_color};
+        font-family: 'Poppins', sans-serif;
+    }}
+    .nav-bar {{
+        background-color: #8785A2;
+        padding: 10px;
+        color: white;
+        text-align: center;
+        font-size: 1rem;
+        font-weight: bold;
+        border-radius: 10px;
+    }}
+    .title {{
+        text-align: center;
+        font-size: 2.8rem;
+        font-weight: bold;
+        color: white !important;
+        font-family: 'Poppins', sans-serif;
+        margin-top: 20px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }}
+    .subtitle {{
+        text-align: center;
+        font-size: 1.1rem;
+        color: {text_color};
+    }}
+    button:hover {{
+        background-color: #1B56FD !important;
+        color: white !important;
+    }}
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# Professional Header
-st.markdown("""
-    <h1 style='text-align: center;'>🤖 Welcome to FixoraAI, Ben GJ</h1>
-    <h3 style='text-align: center; font-weight: 300;'>AI-powered debugging assistant that helps you fix code errors efficiently.</h3>
-""", unsafe_allow_html=True)
+# App Title
+st.markdown('<div class="title">Welcome to 🤖FixoraAI, BenGJ</div>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Your AI-powered debugging assistant</p>', unsafe_allow_html=True)
 
-# Chat history
+# Initialize session state for messages and chat sessions
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "chat_sessions" not in st.session_state:
+    st.session_state.chat_sessions = []
 
-# Display previous chat messages
+# Function to format messages as styled bubbles
+def format_message(role, text):
+    return f'''
+        <div style="background-color:{user_bubble_color if role == "user" else bot_bubble_color};
+                    color:{text_color};
+                    padding:10px;
+                    border-radius:10px;
+                    margin:5px 0;
+                    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);">
+            {"👨‍💻 <b>You:</b>" if role == "user" else "🤖 <b>FixoraAI:</b>"} {text}
+        </div>
+    '''
+
+# Display chat history
 for role, text in st.session_state.messages:
-    avatar = "👤" if role == "user" else "🤖"
-    with st.chat_message(role):
-        st.markdown(f"<div class='message-container'><span class='avatar'>{avatar}</span><span class='{role}-message'>{text}</span></div>", unsafe_allow_html=True)
+    st.markdown(format_message(role, text), unsafe_allow_html=True)
 
-# User input field
-user_input = st.chat_input("Enter your code snippet here...")
+# User input
+user_input = st.chat_input("Enter your code snippet for debugging...")
 
 if user_input:
-    # Display user message
+    # Store & Display User Message
     st.session_state.messages.append(("user", user_input))
-    with st.chat_message("user"):
-        st.markdown(f"<div class='message-container'><span class='avatar'>👤</span><span class='user-message'>{user_input}</span></div>", unsafe_allow_html=True)
-    
+    st.markdown(format_message("user", user_input), unsafe_allow_html=True)
+
     # Show typing animation
-    with st.chat_message("assistant"):
-        typing_placeholder = st.empty()
-        for _ in range(3):
-            typing_placeholder.markdown("<span class='typing-animation'>FixoraAI is thinking...</span>", unsafe_allow_html=True)
-            time.sleep(0.5)
-        typing_placeholder.empty()
-    
+    typing_placeholder = st.empty()
+    typing_placeholder.markdown("🤖 FixoraAI is analyzing your code...")
+    time.sleep(1.5)
+    typing_placeholder.empty()
+
     # Send request to FastAPI backend
-    response = requests.post("http://127.0.0.1:8000/debug/", json={"code": user_input})
+    response = requests.post(API_URL, json={"code": user_input})
     
     if response.status_code == 200:
-        bot_reply = response.json().get("debugging_details", "No suggestions available.")
+        bot_reply = response.json().get("debugging_details", "No debugging suggestions found.")
     else:
         bot_reply = "❌ Error: Unable to fetch response."
-    
-    # Display bot response with real-time typing effect (ChatGPT-like)
+
+    # Store Bot Response
     st.session_state.messages.append(("assistant", bot_reply))
-    with st.chat_message("assistant"):
-        bot_placeholder = st.empty()
-        bot_response = ""
-        for char in bot_reply:
-            bot_response += char
-            bot_placeholder.markdown(f"<div class='message-container'><span class='avatar'>🤖</span><span class='ai-message'>{bot_response}</span></div>", unsafe_allow_html=True)
-            time.sleep(0.01)  # Simulate typing effect
-        bot_placeholder.markdown(f"<div class='message-container'><span class='avatar'>🤖</span><span class='ai-message'>{bot_response}</span></div>", unsafe_allow_html=True)
+    st.markdown(format_message("assistant", bot_reply), unsafe_allow_html=True)
+
+# Buttons for Chat Management
+col1, col2 = st.columns(2)
+with col1:
+    chat_text = "\n\n".join([f"{role.upper()}: {text}" for role, text in st.session_state.messages])
+    st.download_button("Download Current Chat", chat_text, file_name="fixora_chat", use_container_width=True)
+with col2:
+    if st.button("Clear Chat History", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
